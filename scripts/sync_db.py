@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.models import save_products
 
 def sync_products():
-    json_path = 'data/products.json'
+    json_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'products.json')
     if not os.path.exists(json_path):
         print(f"File not found: {json_path}")
         return

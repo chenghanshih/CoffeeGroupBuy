@@ -7,112 +7,85 @@
 > 本系統之爬蟲功能僅用於示範資料抓取技術，所有抓取之產品圖片、文案與商標權利均歸屬 **原品牌商 (Oklao 歐客佬)** 所有。
 > 請勿將此系統部署於公開網路或用於商業營利行為。使用者應自行承擔使用本軟體之所有風險。
 
-一個用於自動化部門同事之間咖啡團購流程的 Flask Web 應用程式。
+一個用於自動化部門同事之間咖啡團購流程的 Flask Web 應用程式：爬取商品 → 同事線上下單 → 匯出商家訂購單與內部分發單。
 
-## ✨ 主要功能更新 (New)
+## ✨ 主要功能
 
-### 1. 📝 訂單與購物管理 (My Orders & Cart)
-
-- 支援 **姓名查詢**、**修改數量**、**刪除訂單** 功能。
-- 已加入購物車的商品會以「已在購物車」標示，避免重複購買。
-- 專為手機設計的**底部導覽列**，大幅提升手機下單體驗。
-
-### 2. 📊 即時銷售分析與新品 (Dashboard & New Items)
-
-- 首頁看板顯示本期團購的熱銷排行 Top 5 與即時統計圖表（烘焙度、價格帶分佈）。
-- 設有「⭐ 本次新品」專區，自動標示最近一次爬蟲更新的新商品。
-
-### 3. ⭐ 商品評論系統 (Reviews)
-
-- 支援 1-5 星評分與文字留言，幫助同事間互相推薦咖啡豆。
-- 手機版採用直覺的底部滑出面板 (Bottom Sheet) 閱讀與填寫。
-
-### 4. 💬 匿名回饋系統
-
-- 點擊頁面底部的「匿名回饋」，可直接傳送系統建議給開發者。
-
-### 5. ☁️ 雲端與混合資料庫 (Hybrid Cloud DB)
-
-- **自動切換**: 本地運行使用 SQLite；設定 `DATABASE_URL` 後自動切換為 **Postgres (Neon)** 雲端模式。
-- **免本地存儲**: 支援遠端圖片 URL 與動態統計，完美適配 **Vercel** 部署。
-
-### 6. 🔥 極致效能與 UX 優化
-
-- **手機版零閃爍**: 採用「物理消滅 (Physical Removal)」策略，側邊欄預設 `display: none` 並結合二階段動畫，徹底解決 Safari 重新整理時的排版跳動。
-- **新品全面篩選**: 「本次新品」頁面現在已支援完整的價格區間與烘焙度篩選，確保在新品眾多時也能快速查閱。
+| 功能 | 說明 |
+|------|------|
+| 📝 訂單與購物車 | 姓名查詢、修改數量、刪除訂單；已加入購物車的商品會標示，避免重複購買 |
+| 📊 即時銷售看板 | 首頁顯示本期熱銷 Top 5 與烘焙度、價格帶分佈圖表 |
+| ⭐ 本次新品 | 自動標示最近一次爬蟲更新的新商品，支援價格與烘焙度篩選 |
+| 💬 商品評論 | 1–5 星評分與文字留言，手機版為底部滑出面板 |
+| 📮 匿名回饋 | 頁尾「匿名回饋」可直接把建議送給開發者 |
+| ☁️ 混合資料庫 | 本地用 SQLite；設定 `DATABASE_URL` 後自動切換為 Postgres (Neon)，可直接部署到 Vercel |
+| 📱 手機優化 | 底部導覽列、44px 觸控目標、消除 Safari 重新整理閃爍 |
 
 ---
 
 ## 🚀 快速開始
 
-### 0️⃣ 首次安裝 (First Time Setup)
-
-若要在新電腦上使用，請先下載專案：
+### 0️⃣ 安裝
 
 ```bash
 git clone https://github.com/hans0803/CoffeeGroupBuy.git
 cd CoffeeGroupBuy
+pip install -r requirements.txt
+cp .env.example .env   # 本地 SQLite 可留空；雲端請填 DATABASE_URL
 ```
 
-### 🔄 更新專案 (Git Pull)
+之後若有更新，執行 `git pull` 拉取最新程式碼。
 
-若專案有更新（例如功能新增或修復），請先執行以下指令拉取最新程式碼：
-
-```bash
-git pull
-```
-
-### 1️⃣ 更新網站 - 執行爬蟲
+### 1️⃣ 更新商品 — 執行爬蟲
 
 ```bash
 python 1_update.py
 ```
 
-- 從**來源網站**爬取最新產品
-- **下載圖片到本地** (`static/images/products/`)
-- 儲存到 SQLite 資料庫
+從來源網站爬取最新產品並寫入資料庫。圖片會快取到 `static/images/products/`，資料庫則保存遠端圖片網址，雲端部署不需另外存圖。
 
-### 2️⃣ 啟動服務 (Server)
+### 2️⃣ 啟動服務
 
-#### 開發模式 (單人測試)
+| 模式 | 指令 | 適用 |
+|------|------|------|
+| 開發 | `python 2_server.py` | 單人測試，port 5001 |
+| 生產 (macOS / Linux) | `sh run_prod.sh` | Gunicorn 4 workers，多人連線 |
+| 生產 (Windows) | `run_prod.bat` | Waitress，多人連線 |
 
-```bash
-python 2_server.py
-```
+生產模式的 port 由 `config.json` 的 `server.port` 決定。同事可透過 `http://<你的IP>:<port>` 連線：
 
-#### 🟢 生產模式 (多人瀏覽 - 推薦)
+- macOS 查 IP：`ipconfig getifaddr en0`
+- Windows 查 IP：`ipconfig`
 
-若要讓多人同時連線點餐，請使用生產模式啟動：
-
-```bash
-sh run_prod.sh
-```
-
-- 使用 Gunicorn 啟動 4 個工作程序 (Workers)
-- 大幅提升併發處理能力
-- 瀏覽器打開：`http://localhost:5001`
-- **區域網路分享**: 同事可透過 `http://<你的IP>:5001` 連線
-    - Mac 查詢 IP: `ipconfig getifaddr en0` (例如 `192.168.1.100`)
-    - Windows 查詢 IP: `ipconfig`
-
-### 3️⃣ 收單 - 匯出並清空
+### 3️⃣ 收單 — 匯出並清空
 
 ```bash
 python 3_export.py
 ```
 
-- 產生商家訂購單與內部分發單 (.xlsx)
-- 自動更新首頁的歷史熱銷排行
-- 完成後可選擇是否清空當期訂單
-
----
+產生商家訂購單與內部分發單 (`data/order_*.xlsx`)，累積歷史銷量，並可選擇清空當期訂單。
 
 ### 4️⃣ 雲端部署 (Vercel + Neon)
 
 1. 在 [Neon.tech](https://neon.tech) 建立免費 PostgreSQL 並取得 `DATABASE_URL`。
-2. 將連結放入 `.env` (本地) 或 Vercel 環境變數中。
-3. 執行 `1_update.py` 將商品資料同步到雲端資料庫。
-4. 將程式碼推送到 GitHub，Vercel 會自動完成部署。
+2. 將連結放入 `.env` (本地) 與 Vercel 環境變數。
+3. 本地執行 `python 1_update.py` 將商品同步到雲端資料庫。
+4. 推送到 GitHub，Vercel 會依 `vercel.json` 自動部署。
+
+詳細步驟見 [docs/deployment.md](docs/deployment.md)。
+
+---
+
+## ⚙️ 設定
+
+- **`config.json`**：首頁文案 (標題、收單時間)、購買說明、特別活動、生產模式 port。每期團購通常只需改 `hero.deadline_info`。
+- **`.env`**：環境變數，範本見 [.env.example](.env.example)。
+
+| 變數 | 必填 | 說明 |
+|------|------|------|
+| `DATABASE_URL` | 否 | 留空用 SQLite；填 Neon 連線字串切換為 Postgres |
+| `SECRET_KEY` | 建議 | Flask session 金鑰，正式環境請自訂 |
+| `GOOGLE_SCRIPT_URL` | 否 | 送單時同步到 Google 表單的 Apps Script 網址 |
 
 ---
 
@@ -120,17 +93,42 @@ python 3_export.py
 
 ```
 coffee/
-├── api/                   # Vercel 進入點 (index.py)
-├── src/                   # 核心模組 (app.py, models.py, scraper.py)
-├── data/                  # 本地資料 (SQLite, Excel)
-├── static/                # 靜態資源 (CSS, JS, 圖片)
-├── templates/             # HTML 模板
-├── vercel.json            # Vercel 部署設定
-└── config.json            # 網站內容設定
+├── 1_update.py          # [入口] 爬蟲更新商品
+├── 2_server.py          # [入口] 開發伺服器
+├── 3_export.py          # [入口] 收單匯出 Excel
+├── run_prod.sh / .bat   # [入口] 生產伺服器 (Gunicorn / Waitress)
+├── config.json          # 網站文案與 port 設定
+├── vercel.json          # Vercel 部署設定
+├── requirements.txt
+├── .env.example         # 環境變數範本
+│
+├── src/                 # 核心程式
+│   ├── app.py           #   Flask 路由與 API
+│   ├── models.py        #   資料庫存取 (SQLite / Postgres)、Excel 匯出
+│   ├── scraper.py       #   爬蟲
+│   └── google_integration.py  # Google 表單整合 (選用)
+├── api/index.py         # Vercel serverless 進入點
+├── templates/           # Jinja2 HTML 模板
+├── static/              # CSS、JS、商品圖片快取 (products/ 不進版控)
+├── scripts/             # 維護用一次性腳本 (見下)
+├── docs/                # 技術文件 (見下)
+└── data/                # 本地資料，不進版控：products.db、匯出的 xlsx、feedback.json
 ```
 
-## 依賴套件
+### 維護腳本 (`scripts/`)
 
-```bash
-pip install -r requirements.txt
-```
+| 腳本 | 用途 |
+|------|------|
+| `migrate_to_neon.py` | 把本地 SQLite 的訂單、歷史銷量、評論一次搬到 Neon |
+| `reprocess_db.py` | 用最新的解析規則重新判定既有商品的烘焙度與處理法 |
+| `sync_db.py` | 從 `data/products.json` 匯入商品到資料庫 (離線還原用) |
+
+皆需在專案根目錄執行，例如 `python scripts/reprocess_db.py`。
+
+### 技術文件 (`docs/`)
+
+- [architecture.md](docs/architecture.md) — 技術堆疊、模組架構與核心流程
+- [database.md](docs/database.md) — 資料表結構與 JSON 檔案
+- [api.md](docs/api.md) — AJAX API 介面
+- [deployment.md](docs/deployment.md) — 本地與雲端部署指南
+- [CHANGELOG.md](CHANGELOG.md) — 版本紀錄

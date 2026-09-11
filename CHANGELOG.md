@@ -2,6 +2,18 @@
 
 All notable changes to the Coffee Group Buy project will be documented in this file.
 
+## [Unreleased]
+### Changed
+- **Repo Cleanup**: Moved one-off maintenance scripts (`migrate_to_neon.py`, `push.sh`) into `scripts/`; scripts now resolve paths from the project root so they work from any working directory.
+- **.gitignore**: Replaced broad `*.json` / `*.sh` patterns with explicit entries; added `.env.example` documenting `DATABASE_URL`, `SECRET_KEY`, `GOOGLE_SCRIPT_URL`.
+- **Docs**: README restructured (feature table, config section, script index, docs links); architecture tree, deployment guide (Windows, env vars, migration step) and database doc title updated.
+
+### Removed
+- `cookies.txt` (stray local curl session file) from version control.
+
+### Fixed
+- **Stats**: Corrected roast-level classification and chart colours on the dashboard.
+
 ## [1.1.1] - 2026-03-11
 ### Added
 - **New Products Filtering**: Enabled full support for roast level and price filters on the "本次新品" (New Products) sheet.

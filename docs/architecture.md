@@ -35,19 +35,25 @@
 
 ```
 coffee/
-├── config.json      # [設定] 網站設定檔
-├── 1_update.py      # [入口] 爬蟲更新模組
-├── 2_server.py      # [入口] 開發伺服器
-├── 3_export.py      # [入口] 匯出報表模組
-├── run_prod.sh      # [入口] 生產部署腳本
+├── 1_update.py / 2_server.py / 3_export.py   # [入口] 更新 / 開發伺服器 / 收單
+├── run_prod.sh / run_prod.bat                # [入口] 生產伺服器 (Gunicorn / Waitress)
+├── config.json          # 網站文案與 port
+├── vercel.json          # Vercel 部署設定
 ├── src/
-│   ├── app.py       # Flask 應用核心、路由定義
-│   ├── models.py    # 資料庫模型與操作 (ORM-like)
-│   └── scraper.py   # 爬蟲邏輯
-├── data/
-│   ├── products.db  # 主要資料庫
-│   └── feedback.json # 匿名回饋存檔
-└── templates/       # HTML 視圖
+│   ├── app.py           # Flask 應用核心、路由與 API
+│   ├── models.py        # 資料庫存取 (SQLite / Postgres 自動切換)、統計、Excel 匯出
+│   ├── scraper.py       # 爬蟲邏輯 (Requests + BeautifulSoup)
+│   └── google_integration.py  # Google Apps Script 送單 (選用)
+├── api/index.py         # Vercel serverless 進入點，載入 src.app
+├── templates/           # Jinja2 HTML 視圖
+├── static/              # style.css、app.js、images/products/ (圖片快取)
+├── scripts/             # 維護腳本：migrate_to_neon、reprocess_db、sync_db
+├── docs/                # 本文件所在
+└── data/                # 本地資料 (不進版控)
+    ├── products.db      # SQLite 主資料庫
+    ├── feedback.json    # 匿名回饋存檔
+    ├── statistics.json  # 上期結算後的歷史統計
+    └── order_*.xlsx     # 收單匯出的商家 / 內部訂購單
 ```
 
 ## 🔄 核心流程 (Core Flows)

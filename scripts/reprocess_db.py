@@ -6,8 +6,11 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.scraper import extract_roast, extract_processing
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(BASE_DIR, 'data', 'products.db')
+
 def reprocess_db():
-    conn = sqlite3.connect('data/products.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     cursor.execute("SELECT id, name FROM products")
@@ -38,7 +41,7 @@ def reprocess_db():
     print("Syncing DB to products.json...")
     try:
         import json
-        conn = sqlite3.connect('data/products.db')
+        conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM products")
@@ -47,7 +50,7 @@ def reprocess_db():
         products_list = [dict(row) for row in rows]
         
         # 確保路徑正確
-        json_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'products.json')
+        json_path = os.path.join(BASE_DIR, 'data', 'products.json')
         
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(products_list, f, indent=2, ensure_ascii=False)

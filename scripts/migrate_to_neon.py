@@ -4,10 +4,11 @@ import os
 import json
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'))
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATABASE_URL = os.environ.get("DATABASE_URL")
-SQLITE_PATH = 'data/products.db'
+SQLITE_PATH = os.path.join(BASE_DIR, 'data', 'products.db')
 
 def migrate():
     if not DATABASE_URL:

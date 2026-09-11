@@ -1,33 +1,24 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-
-# Environment
-.env
-.venv
-env/
+.venv/
 venv/
+env/
 
-# Mac
-.DS_Store
+# 環境變數與機密
+.env
+cookies.txt
 
-# Data & Database
+# 本地資料 (SQLite、匯出的 Excel、回饋與統計 JSON)
 data/
-*.db
-*.sqlite
-*.xlsx
-*.json
-!config.json
 
-# Downloaded Images
+# 爬蟲下載的商品圖片
 static/images/products/
 
-# IDEs
+# 個人推送腳本 (含 GitHub 帳號設定)
+scripts/push.sh
+
+# 系統 / 編輯器
+.DS_Store
 .vscode/
 .idea/
-
-# Scripts
-push.sh
-*.sh
-!run_prod.sh

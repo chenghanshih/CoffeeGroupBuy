@@ -1,3 +1,5 @@
+# 資料庫結構文件 (Database Schema)
+
 本系統支援 **混合資料庫架構**：
 - **本地端**: 使用 **SQLite**，檔案位於 `data/products.db`。
 - **雲端部署**: 支援 **PostgreSQL (Neon)**，透過 `DATABASE_URL` 環境變數連線。
