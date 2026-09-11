@@ -73,14 +73,6 @@ def index():
     categories = get_categories()
     site_config = load_site_config()
     
-    # 過濾分類
-    if 'special_events' in site_config:
-        new_year_cfg = site_config['special_events'].get('new_year_giftbox', {})
-        if not new_year_cfg.get('enabled', False):
-             # 如果未啟用，從列表中移除
-             key_to_remove = new_year_cfg.get('category_key')
-             categories = [c for c in categories if c['category'] != key_to_remove]
-    
     # 動態產生銷售統計 (從資料庫)，取代靜態的 statistics.json
     try:
         stats = get_sales_statistics_dict()

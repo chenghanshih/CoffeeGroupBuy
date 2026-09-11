@@ -4,11 +4,13 @@ All notable changes to the Coffee Group Buy project will be documented in this f
 
 ## [Unreleased]
 ### Changed
+- **"本次新品" Definition**: New products are now "everything scraped since the last export (收單)". `3_export.py` records `last_export_at` in a new `settings` table; the listing, price chips and facets share one `new_products_condition()` helper instead of three copies of a 7-day window. Falls back to the latest batch when no export has been recorded.
 - **Repo Cleanup**: Moved one-off maintenance scripts (`migrate_to_neon.py`, `push.sh`) into `scripts/`; scripts now resolve paths from the project root so they work from any working directory.
 - **.gitignore**: Replaced broad `*.json` / `*.sh` patterns with explicit entries; added `.env.example` documenting `DATABASE_URL`, `SECRET_KEY`, `GOOGLE_SCRIPT_URL`.
 - **Docs**: README restructured (feature table, config section, script index, docs links); architecture tree, deployment guide (Windows, env vars, migration step) and database doc title updated.
 
 ### Removed
+- **新春禮盒 (New Year gift box)**: category dropped from the scraper, `config.json` special events, the index filter and both databases.
 - `cookies.txt` (stray local curl session file) from version control.
 
 ### Fixed

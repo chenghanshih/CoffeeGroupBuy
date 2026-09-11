@@ -63,6 +63,19 @@
 | `comment` | TEXT | 評論內容 |
 | `created_at` | DATETIME | 建立時間 |
 
+### 5. `settings` (系統設定表)
+簡單的 key/value 設定，目前用於記錄收單時間。
+
+| 欄位名稱 | 類型 | 說明 |
+|----------|------|------|
+| `key` | TEXT (PK) | 設定鍵 |
+| `value` | TEXT | 設定值 |
+| `updated_at` | TIMESTAMP | 最後更新時間 |
+
+| key | 說明 |
+|-----|------|
+| `last_export_at` | 上次執行 `3_export.py` 收單的時間 (UTC)。`created_at` 晚於此時間的商品即為「本次新品」；尚未記錄時退回「最新一批」 |
+
 ---
 
 ## 📄 JSON 儲存

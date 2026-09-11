@@ -148,6 +148,15 @@ def init_db():
             )
         ''')
         
+        # 系統設定表 (key/value)，例如上次收單時間 last_export_at
+        db_execute(cursor, '''
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
         # 簡單遷移：針對 SQLite 新增欄位 (PostgreSQL 初次建立就會包含，若要完善需處理 PG 遷移)
         if not IS_POSTGRES:
             cursor.execute("PRAGMA table_info(products)")
@@ -160,7 +169,6 @@ def init_db():
                 cursor.execute("ALTER TABLE products ADD COLUMN purchase_count INTEGER DEFAULT 0")
         
         conn.commit()
-        print("資料庫初始化完成")
         print("資料庫初始化完成")
 
 
@@ -296,72 +304,94 @@ def get_all_products(category: Optional[str] = None, min_price: Optional[int] = 
         rows = db_execute(cursor, query, tuple(params), fetch='all')
         return [row_to_dict(cursor, row) for row in rows]
 
-def get_newest_products(days: int = 7, min_price: Optional[int] = None, max_price: Optional[int] = None,
-                        roast: Optional[str] = None, processing: Optional[str] = None) -> List[Dict]:
-    """取得最近 N 天內首次建立的產品 (即本次新品)，支援參數篩選"""
+# ========================================
+# 系統設定 (settings 表)
+# ========================================
+
+LAST_EXPORT_KEY = 'last_export_at'
+
+
+def get_setting(key: str) -> Optional[str]:
+    """讀取設定值，不存在回傳 None"""
     with get_db() as conn:
         cursor = conn.cursor()
-        
-        base_query = "SELECT * FROM products WHERE "
-        conditions = []
-        params = []
+        row = db_execute(cursor, 'SELECT value FROM settings WHERE key = ?', (key,), fetch='one')
+        row = row_to_dict(cursor, row)
+        return row['value'] if row else None
 
+
+def set_setting(key: str, value: str):
+    """寫入設定值 (upsert)"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        now = datetime.utcnow()
         if IS_POSTGRES:
-            conditions.append("created_at >= NOW() - (INTERVAL '1 day' * ?)")
-            params.append(days)
+            query = '''
+                INSERT INTO settings (key, value, updated_at) VALUES (%s, %s, %s)
+                ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+            '''
         else:
-            conditions.append("created_at >= datetime('now', ?)")
-            params.append(f'-{days} days')
+            query = '''
+                INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+            '''
+        db_execute(cursor, query, (key, value, now))
+        conn.commit()
 
-        # 套用額外濾鏡
-        if min_price is not None:
-            conditions.append("price >= ?")
-            params.append(min_price)
-        if max_price is not None:
-            conditions.append("price <= ?")
-            params.append(max_price)
-        if roast:
-            group = ROAST_GROUPS.get(roast)
-            if group:
-                roast_placeholders = ', '.join(['?' for _ in group['values']])
-                conditions.append(f"roast IN ({roast_placeholders})")
-                params.extend(group['values'])
-        if processing:
-            conditions.append("processing = ?")
-            params.append(processing)
 
-        query = base_query + " AND ".join(conditions) + " ORDER BY purchase_count DESC, created_at DESC, category, name ASC"
+def mark_orders_exported():
+    """記錄本次收單時間 (UTC，與 products.created_at 一致)。之後爬進來的商品即為「本次新品」"""
+    now_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    set_setting(LAST_EXPORT_KEY, now_utc)
+    print(f"已記錄收單時間 (UTC): {now_utc}")
+
+
+def new_products_condition(cursor) -> Tuple[str, list]:
+    """
+    回傳「本次新品」的 SQL 條件與參數。
+    定義：上次收單 (last_export_at) 之後才建立的商品。
+    若尚未記錄過收單時間，退回「最新一批 (created_at 日期最大者)」。
+    """
+    row = db_execute(cursor, 'SELECT value FROM settings WHERE key = ?', (LAST_EXPORT_KEY,), fetch='one')
+    row = row_to_dict(cursor, row)
+    last_export = row['value'] if row else None
+    if last_export:
+        return "created_at > ?", [last_export]
+    return "DATE(created_at) = (SELECT DATE(MAX(created_at)) FROM products)", []
+
+
+def _apply_product_filters(conditions: list, params: list, min_price=None, max_price=None, roast=None, processing=None):
+    """把價格 / 烘焙度 / 處理法篩選加進 conditions 與 params"""
+    if min_price is not None:
+        conditions.append("price >= ?")
+        params.append(min_price)
+    if max_price is not None:
+        conditions.append("price <= ?")
+        params.append(max_price)
+    if roast:
+        group = ROAST_GROUPS.get(roast)
+        if group:
+            roast_placeholders = ', '.join(['?' for _ in group['values']])
+            conditions.append(f"roast IN ({roast_placeholders})")
+            params.extend(group['values'])
+    if processing:
+        conditions.append("processing = ?")
+        params.append(processing)
+
+
+def get_newest_products(min_price: Optional[int] = None, max_price: Optional[int] = None,
+                        roast: Optional[str] = None, processing: Optional[str] = None) -> List[Dict]:
+    """取得本次新品 (上次收單後才建立的產品)，支援參數篩選"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        where, params = new_products_condition(cursor)
+        conditions = [where]
+        _apply_product_filters(conditions, params, min_price, max_price, roast, processing)
+
+        query = "SELECT * FROM products WHERE " + " AND ".join(conditions) + \
+                " ORDER BY purchase_count DESC, created_at DESC, category, name ASC"
         rows = db_execute(cursor, query, tuple(params), fetch='all')
-        
-        if not rows:
-            # Fallback: 最新批次
-            params = []
-            if IS_POSTGRES:
-                subquery = "SELECT MAX(created_at) FROM products"
-                where_clause = "DATE(created_at) = DATE(({}))".format(subquery)
-            else:
-                where_clause = "date(created_at) = (SELECT date(max(created_at)) FROM products)"
-            
-            conditions = [where_clause]
-            if min_price is not None:
-                conditions.append("price >= ?")
-                params.append(min_price)
-            if max_price is not None:
-                conditions.append("price <= ?")
-                params.append(max_price)
-            if roast:
-                group = ROAST_GROUPS.get(roast)
-                if group:
-                    roast_placeholders = ', '.join(['?' for _ in group['values']])
-                    conditions.append(f"roast IN ({roast_placeholders})")
-                    params.extend(group['values'])
-            if processing:
-                conditions.append("processing = ?")
-                params.append(processing)
-
-            fallback_query = "SELECT * FROM products WHERE " + " AND ".join(conditions) + " ORDER BY category, name ASC"
-            rows = db_execute(cursor, fallback_query, tuple(params), fetch='all')
-            
         return [row_to_dict(cursor, row) for row in rows]
 
 def get_sales_statistics_dict() -> dict:
@@ -440,11 +470,9 @@ def get_common_prices(category: Optional[str] = None, limit: int = 12) -> List[i
         params = []
 
         if category == 'new':
-            # 這裡的邏輯要跟 get_newest_products 一致
-            if IS_POSTGRES:
-                query += " AND created_at >= NOW() - INTERVAL '7 days'"
-            else:
-                query += " AND created_at >= datetime('now', '-7 days')"
+            where, new_params = new_products_condition(cursor)
+            query += " AND " + where
+            params.extend(new_params)
         elif category:
             query += " AND category = ?"
             params.append(category)
@@ -453,16 +481,6 @@ def get_common_prices(category: Optional[str] = None, limit: int = 12) -> List[i
         params.append(limit)
 
         rows = db_execute(cursor, query, tuple(params), fetch='all')
-        
-        # 如果 category='new' 且沒結果，同樣嘗試最新批次的 fallback
-        if category == 'new' and not rows:
-            fallback_query = """
-                SELECT price, COUNT(*) as count FROM products 
-                WHERE DATE(created_at) = (SELECT DATE(MAX(created_at)) FROM products)
-                GROUP BY price ORDER BY price ASC LIMIT ?
-            """
-            rows = db_execute(cursor, fallback_query, (limit,), fetch='all')
-
         return [row_to_dict(cursor, row)['price'] for row in rows]
 
 
@@ -556,37 +574,22 @@ def get_product_facets(category: str) -> dict:
     with get_db() as conn:
         cursor = conn.cursor()
 
-        where_clause = "WHERE category = ?"
-        params = (category,)
-        
         if category == 'new':
-            if IS_POSTGRES:
-                where_clause = "WHERE created_at >= NOW() - INTERVAL '7 days'"
-            else:
-                where_clause = "WHERE created_at >= datetime('now', '-7 days')"
-            params = ()
+            where, params = new_products_condition(cursor)
+            where_clause = "WHERE " + where
+            params = tuple(params)
+        else:
+            where_clause = "WHERE category = ?"
+            params = (category,)
 
         # 1. 取得烘焙度
         roast_query = f"SELECT roast, COUNT(*) as count FROM products {where_clause} AND roast IS NOT NULL AND roast != '' GROUP BY roast ORDER BY count DESC"
         rows = db_execute(cursor, roast_query, params, fetch='all')
-        
-        # Fallback for category 'new'
-        if category == 'new' and not rows:
-            fallback_where = "WHERE DATE(created_at) = (SELECT DATE(MAX(created_at)) FROM products)"
-            roast_query = f"SELECT roast, COUNT(*) as count FROM products {fallback_where} AND roast IS NOT NULL AND roast != '' GROUP BY roast ORDER BY count DESC"
-            rows = db_execute(cursor, roast_query, (), fetch='all')
-            
         facets['roast'] = [row_to_dict(cursor, row)['roast'] for row in rows]
 
         # 2. 取得處理法
         proc_query = f"SELECT processing, COUNT(*) as count FROM products {where_clause} AND processing IS NOT NULL AND processing != '' GROUP BY processing ORDER BY count DESC"
         rows = db_execute(cursor, proc_query, params, fetch='all')
-        
-        if category == 'new' and not rows:
-            fallback_where = "WHERE DATE(created_at) = (SELECT DATE(MAX(created_at)) FROM products)"
-            proc_query = f"SELECT processing, COUNT(*) as count FROM products {fallback_where} AND processing IS NOT NULL AND processing != '' GROUP BY processing ORDER BY count DESC"
-            rows = db_execute(cursor, proc_query, (), fetch='all')
-            
         facets['processing'] = [row_to_dict(cursor, row)['processing'] for row in rows]
 
     return facets

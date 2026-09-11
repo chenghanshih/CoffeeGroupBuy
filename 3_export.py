@@ -8,7 +8,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.models import init_db, get_all_orders, export_orders, clear_orders, update_sales_statistics
+from src.models import init_db, get_all_orders, export_orders, clear_orders, update_sales_statistics, mark_orders_exported
 
 
 def main():
@@ -45,6 +45,9 @@ def main():
     # 清空訂單
     print("正在清空訂單...")
     count = clear_orders()
+    
+    # 記錄收單時間：之後爬進來的商品會被視為「本次新品」
+    mark_orders_exported()
     
     print("\n" + "=" * 50)
     print(f"✅ 收單完成！已處理 {count} 筆訂單")

@@ -99,4 +99,5 @@ coffee/
    - **內部分發單**: 按人員分組 (Group by Customer)，列出每人明細與總額
 3. 使用 `openpyxl` 產生 Excel 檔案並套用樣式
 4. 更新 `data/statistics.json` 做為歷史紀錄
-5. (可選) 清空 `orders` 資料表，開啟新一輪團購
+5. 清空 `orders` 資料表，並在 `settings` 表寫入 `last_export_at`
+6. 之後 `1_update.py` 新爬進來的商品 (`created_at` > `last_export_at`) 就會出現在「本次新品」
