@@ -28,7 +28,7 @@
 ### 0️⃣ 安裝
 
 ```bash
-git clone https://github.com/hans0803/CoffeeGroupBuy.git
+git clone https://github.com/chenghanshih/CoffeeGroupBuy.git
 cd CoffeeGroupBuy
 pip install -r requirements.txt
 cp .env.example .env   # 本地 SQLite 可留空；雲端請填 DATABASE_URL
